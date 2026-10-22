@@ -1,16 +1,483 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>Title</title>
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
-<h1>GAME PIKACHU</h1>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Pikachu</title>
 
-<div class="game-board">
-    <table id="game"></table>
-</div>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: Arial, sans-serif;
+            background: #e8f5ff;
+            color: #263653;
+        }
+
+        button {
+            font: inherit;
+            cursor: pointer;
+        }
+
+        [hidden] {
+            display: none !important;
+        }
+
+        .screen {
+            min-height: 100vh;
+            padding: 22px 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .menu-container {
+            width: 100%;
+            max-width: 850px;
+            text-align: center;
+        }
+
+        .game-logo {
+            width: 100px;
+            height: 100px;
+            margin: 0 auto 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 28px;
+            background: #ffe16a;
+            box-shadow: 0 7px 0 #e7b83e;
+            font-size: 60px;
+        }
+
+        h1 {
+            margin: 28px 0;
+            color: #315da8;
+            font-size: clamp(34px, 6vw, 54px);
+            letter-spacing: 3px;
+        }
+
+        .menu-panel {
+            max-width: 650px;
+            margin: 0 auto;
+            padding: 24px;
+            border: 1px solid #e2eaf4;
+            border-radius: 22px;
+            background: #fff;
+            box-shadow: 0 12px 35px rgba(51, 83, 125, .12);
+        }
+
+        .menu-button {
+            width: 100%;
+            min-height: 48px;
+            margin: 6px 0;
+            padding: 12px 16px;
+            border: 2px solid transparent;
+            border-radius: 12px;
+            background: #f0f5fc;
+            color: #31517e;
+            font-weight: bold;
+            transition: transform .15s, box-shadow .15s;
+        }
+
+        .menu-button:hover {
+            background: #e2edff;
+        }
+
+        .menu-button.primary,
+        .menu-button.primary:hover {
+            background: #ffcf43;
+            color: #493711;
+        }
+
+        .menu-button.primary:hover {
+            box-shadow: 0 4px 0 #e5b52c;
+            transform: translateY(-1px);
+        }
+
+        .section-title {
+            color: #315da8;
+        }
+
+        .level-list {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+            text-align: left;
+        }
+
+        .level-button {
+            min-height: 105px;
+            padding: 14px;
+            border: 2px solid #dce7f5;
+            border-radius: 14px;
+            background: #f8fbff;
+            color: #31517e;
+            text-align: left;
+        }
+
+        .level-button.selected {
+            border-color: #e8b62e;
+            background: #fff5cc;
+        }
+
+        .level-name {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 17px;
+            font-weight: bold;
+        }
+
+        .level-description {
+            display: block;
+            color: #6b7890;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .high-score {
+            margin: 22px 0;
+            color: #b77910;
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .game-container {
+            width: 100%;
+            max-width: 1150px;
+            text-align: center;
+        }
+
+        .game-header {
+            margin-bottom: 14px;
+        }
+
+        .game-header h2 {
+            color: #315da8;
+        }
+
+        .status-line {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 10px 0;
+        }
+
+        .status-item {
+            padding: 8px 12px;
+            border-radius: 9px;
+            background: #fff;
+        }
+
+        .game-toolbar {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+
+        .small-button {
+            padding: 10px 14px;
+            border: 0;
+            border-radius: 9px;
+            background: #315da8;
+            color: #fff;
+            font-weight: bold;
+        }
+
+        .small-button:hover {
+            background: #254984;
+        }
+
+        .small-button:disabled {
+            opacity: .5;
+            cursor: not-allowed;
+        }
+
+        .game-board {
+            width: min(100%, 960px);
+            aspect-ratio: 16 / 9;
+            margin: 0 auto;
+            overflow: hidden;
+            border: 4px solid #b8cce7;
+            border-radius: 12px;
+            background: #fff;
+            box-shadow: 0 8px 24px rgba(51, 83, 125, .12);
+        }
+
+        #game {
+            width: 100%;
+            height: 100%;
+            table-layout: fixed;
+            border-collapse: collapse;
+        }
+
+        .cell {
+            position: relative;
+            padding: 1px;
+            border: 1px solid #a9b7ca;
+            background: #fff;
+            text-align: center;
+            vertical-align: middle;
+            user-select: none;
+        }
+
+        .cell img {
+            display: block;
+            width: 100%;
+            height: 100%;
+            max-width: 44px;
+            max-height: 44px;
+            margin: auto;
+            object-fit: contain;
+            pointer-events: none;
+        }
+
+        .cell.selected {
+            background: #ffe16a;
+            box-shadow: inset 0 0 0 2px #e4a91b;
+        }
+
+        .cell.hint {
+            background: #a9f3c5 !important;
+        }
+
+        .cell.hidden-tile {
+            background: #dceaff;
+            color: #315da8;
+            font-size: clamp(10px, 2vw, 24px);
+            font-weight: bold;
+        }
+
+        .cell.blocked {
+            background: #9eafc5;
+            opacity: .78;
+        }
+
+        .cell.memory {
+            box-shadow: inset 0 0 0 3px var(--memory-color);
+        }
+
+        .cell.bomb-lucky::after,
+        .cell.bomb-unlucky::after {
+            position: absolute;
+            top: 0;
+            right: 1px;
+            font-size: clamp(8px, 1.2vw, 14px);
+        }
+
+        .cell.bomb-lucky::after {
+            content: "💣";
+        }
+
+        .cell.bomb-unlucky::after {
+            content: "💣";
+        }
+
+        .cell.bomb-countdown::before {
+            content: attr(data-seconds);
+            position: absolute;
+            right: 1px;
+            bottom: 0;
+            z-index: 2;
+            padding: 1px 3px;
+            border-radius: 4px;
+            background: #e53935;
+            color: white;
+            font-size: clamp(8px, 1vw, 12px);
+            font-weight: bold;
+        }
+
+        .cell.bomb-lucky {
+            border-color: #2eae63;
+        }
+
+        .cell.bomb-unlucky {
+            border-color: #e05252;
+        }
+
+        .game-note {
+            min-height: 24px;
+            margin-top: 12px;
+            color: #526782;
+            font-size: 14px;
+        }
+
+        .memory-card {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 7px 11px;
+            border: 2px solid #c5a3ff;
+            border-radius: 10px;
+            background: #f2eaff;
+            color: #6336a5;
+            font-weight: bold;
+        }
+
+        @media (max-width: 600px) {
+            .menu-panel {
+                padding: 16px;
+            }
+
+            .level-list {
+                grid-template-columns: 1fr;
+            }
+
+            .game-board {
+                aspect-ratio: 4 / 3;
+            }
+
+            .cell {
+                padding: 0;
+            }
+
+            .cell img {
+                max-width: 100%;
+                max-height: 100%;
+            }
+
+            .small-button {
+                padding: 9px 10px;
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<section id="home-screen" class="screen">
+    <div class="menu-container">
+        <div class="game-logo" aria-hidden="true">⚡</div>
+        <h1>PIKACHU</h1>
+
+        <div class="menu-panel">
+            <button id="start-button" class="menu-button primary">
+                BẮT ĐẦU CHƠI
+            </button>
+
+            <button id="choose-level-button" class="menu-button">
+                CHỌN LEVEL
+            </button>
+
+            <button id="high-score-button" class="menu-button">
+                KỶ LỤC
+            </button>
+        </div>
+    </div>
+</section>
+
+<section id="level-screen" class="screen" hidden>
+    <div class="menu-container">
+        <div class="menu-panel">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+                <h2 class="section-title">Chọn Level</h2>
+                <button id="close-level-button" class="small-button"
+                        aria-label="Đóng chọn level">✕</button>
+            </div>
+
+            <div class="level-list">
+                <button class="level-button selected"
+                        data-level="1" aria-pressed="true">
+                    <span class="level-name">Level 1 — Cổ điển</span>
+                    <span class="level-description">
+                        Ghép hai hình giống nhau.
+                    </span>
+                </button>
+
+
+            </div>
+
+            <button id="play-level-button" class="menu-button primary">
+                CHƠI LEVEL ĐÃ CHỌN
+            </button>
+
+            <button id="back-level-button" class="menu-button">
+                TRỞ LẠI CHƠI TIẾP
+            </button>
+        </div>
+    </div>
+</section>
+
+<section id="score-screen" class="screen" hidden>
+    <div class="menu-container">
+        <div class="menu-panel">
+            <h2 class="section-title">Kỷ lục</h2>
+            <p>Điểm cao nhất .</p>
+            <p id="high-score-value" class="high-score">0 điểm</p>
+
+            <button id="score-back-button" class="menu-button">
+                QUAY LẠI
+            </button>
+        </div>
+    </div>
+</section>
+
+<section id="game-screen" class="screen" hidden>
+    <div class="game-container">
+        <div class="game-header">
+            <h2 id="game-title">PIKACHU — LEVEL 1</h2>
+
+            <div class="status-line">
+                <span class="status-item">
+                    Điểm: <b id="current-score">0</b>
+                </span>
+
+                <span class="status-item">
+                    Kỷ lục: <b id="game-high-score">0</b>
+                </span>
+
+                <span class="status-item">
+                    Lượt đổi: <b id="shuffle-count">7</b>
+                </span>
+
+                <span class="status-item">
+                    Gợi ý: <b id="hint-count">5</b>
+                </span>
+
+
+            </div>
+        </div>
+
+        <div class="game-toolbar">
+            <button id="restart-button" class="small-button">
+                Chơi lại
+            </button>
+
+            <button id="change-level-button" class="small-button">
+                Chọn Level
+            </button>
+
+            <button id="shuffle-button" class="small-button">
+                Đổi vị trí (7)
+            </button>
+
+            <button id="hint-button" class="small-button">
+                Gợi ý (5)
+            </button>
+
+            <button id="return-home-button" class="small-button">
+                Trang chủ
+            </button>
+        </div>
+
+        <div class="game-board">
+            <table id="game" aria-label="Bảng chơi Pikachu"></table>
+        </div>
+
+        <p id="game-note" class="game-note">
+            Chọn hai ô có hình giống nhau để ghép.
+        </p>
+    </div>
+</section>
+
+<script src="game.js"></script>
 </body>
 </html>
-<script src="index.js"></script>
