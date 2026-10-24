@@ -15,14 +15,15 @@ var comboCount = 0;
 var memoryReady = false;
 var memoryActive = false;
 var memoryCardInUse = false;
-var memorySeconds = 15;
+var memorySeconds = 20;
 var gameTimeLimit = 480;
 var gameTimeLeft = 480;
+var gameTimer = null;
 var bombSeconds = 15;
 var bombTile = null;
-var gameTimer = null;
 var bombTimer = null;
 var memoryTimer = null;
+var previewTimer = null;
 var countdownTimer = null;
 var edgeTimer = null;
 var mismatchTimer = null;
@@ -91,6 +92,18 @@ document.querySelectorAll(".level-button").forEach(function (button) {
     });
 });
 
+function showSelectedLevelHelp() {
+    var selectedButton = document.querySelector(
+        '.level-button[data-level="' + selectedLevel + '"]'
+    );
+    var content = document.getElementById("level-help-content");
+
+    if (selectedButton && content) {
+        content.textContent = selectedButton.dataset.help;
+        content.hidden = false;
+    }
+}
+
 document.getElementById("restart-button").addEventListener("click", function () {
     startGame(selectedLevel);
 });
@@ -112,23 +125,18 @@ document.getElementById("return-home-button").addEventListener("click", function
 });
 
 function showScreen(screen) {
-    [homeScreen, levelScreen, scoreScreen, gameScreen].forEach(function (item) {
+    var screens = [
+        homeScreen,
+        levelScreen,
+        scoreScreen,
+        gameScreen
+    ];
+
+    screens.forEach(function (item) {
         item.hidden = true;
     });
 
     screen.hidden = false;
-}
-
-function showSelectedLevelHelp() {
-    var button = document.querySelector(
-        '.level-button[data-level="' + selectedLevel + '"]'
-    );
-    var content = document.getElementById("level-help-content");
-
-    if (button && content) {
-        content.textContent = button.dataset.help || "";
-        content.hidden = !content.textContent;
-    }
 }
 
 function returnFromLevelMenu() {
@@ -158,7 +166,7 @@ function startGame(level) {
     memoryReady = false;
     memoryActive = false;
     memoryCardInUse = false;
-    memorySeconds = 15;
+    memorySeconds = 20;
     gameTimeLeft = gameTimeLimit;
     bombSeconds = 15;
     bombTile = null;
@@ -170,16 +178,17 @@ function startGame(level) {
     stopAllTimers();
 
     document.getElementById("game-title").textContent =
-        "PIKACHU — LEVEL " + selectedLevel;
+        "LEVEL " + selectedLevel;
 
-    document.getElementById("game-note").textContent = "";
     document.getElementById("memory-panel").hidden = selectedLevel !== 4;
     document.getElementById("preview-countdown").hidden = true;
     document.getElementById("memory-timer").hidden = true;
-    document.getElementById("memory-timer").textContent = "15s";
+    document.getElementById("memory-timer").textContent = "20s";
     document.getElementById("memory-progress").style.transform = "scaleY(0)";
+    document.getElementById("game-note").textContent = "";
 
     createBoard();
+
     showScreen(gameScreen);
     updateCounters();
     updateGameTimerDisplay();
@@ -198,11 +207,14 @@ function startGame(level) {
 function createBoard() {
     game.innerHTML = "";
     tiles = [];
-
     var values = [];
 
     for (var type = 1; type <= 36; type++) {
-        values.push(type, type, type, type);
+        values.push(type, type);
+    }
+
+    for (var extra = 1; extra <= 36; extra++) {
+        values.push(extra, extra);
     }
 
     shuffleArray(values);
@@ -227,6 +239,7 @@ function createBoard() {
             };
 
             td.addEventListener("click", onTileClick);
+
             tiles.push(tile);
             tr.appendChild(td);
         }
@@ -249,19 +262,25 @@ function createBoard() {
 }
 
 function setupLevelThree() {
-    var hiddenTiles = tiles.slice();
-    shuffleArray(hiddenTiles);
-
-    var hiddenCount = Math.floor(tiles.length / 3);
-
-    hiddenTiles.forEach(function (tile, index) {
-        tile.revealed = index >= hiddenCount;
+    tiles.forEach(function (tile) {
+        tile.revealed = true;
     });
 
-    hiddenTiles = hiddenTiles.slice(0, hiddenCount);
+    var covered = tiles.slice();
+    shuffleArray(covered);
+
+    var coveredCount = Math.floor(tiles.length / 3);
+
+    covered.forEach(function (tile, index) {
+        tile.revealed = index >= coveredCount;
+    });
+
+    var hiddenTiles = covered.slice(0, coveredCount);
     shuffleArray(hiddenTiles);
 
-    for (var i = 0; i < Math.min(4, hiddenTiles.length); i++) {
+    var bombCount = Math.min(4, hiddenTiles.length);
+
+    for (var i = 0; i < bombCount; i++) {
         hiddenTiles[i].bombKind = i % 2 === 0 ? "lucky" : "unlucky";
     }
 }
@@ -291,7 +310,9 @@ function drawTiles() {
 
         cell.style.visibility = "visible";
 
-        if (!tile.revealed && !memoryActive) {
+        var showFace = tile.revealed || memoryActive;
+
+        if (!showFace) {
             cell.innerHTML = "";
             cell.textContent = "?";
             cell.classList.add("hidden-tile");
@@ -299,11 +320,12 @@ function drawTiles() {
             var picture = document.createElement("img");
 
             picture.src = "Image/type" + tile.type + ".png";
-            picture.alt = "";
+            picture.alt = "Hình " + tile.type;
             picture.draggable = false;
 
             picture.onerror = function () {
-                cell.innerHTML = "";
+                cell.textContent = "Ảnh " + tile.type;
+                cell.classList.add("hidden-tile");
             };
 
             cell.innerHTML = "";
@@ -315,7 +337,12 @@ function drawTiles() {
             cell.dataset.seconds = bombSeconds + "s";
         }
 
-        if (selectedLevel === 4 && memoryActive && !memoryCardInUse) {
+        if (
+            memoryActive &&
+            selectedLevel === 4 &&
+            !memoryCardInUse &&
+            document.getElementById("preview-countdown").hidden
+        ) {
             cell.classList.add("memory");
             cell.style.setProperty(
                 "--memory-color",
@@ -349,8 +376,8 @@ function onTileClick(event) {
         drawTiles();
 
         if (tile.bombKind && !tile.bombUsed) {
-            tile.bombUsed = true;
             selectedCells = [];
+            tile.bombUsed = true;
 
             if (tile.bombKind === "lucky") {
                 triggerLuckyBomb(tile);
@@ -383,23 +410,27 @@ function onTileClick(event) {
         first.removed = true;
         tile.removed = true;
         selectedCells = [];
+
         currentScore += 10;
 
         if (selectedLevel === 4) {
             comboCount++;
 
-            if (memoryCardInUse && comboCount >= 2) {
-                comboCount = 0;
-                memorySeconds = 15;
-                document.getElementById("memory-timer").textContent = "15s";
-                document.getElementById("memory-progress").style.transform = "scaleY(1)";
-            } else if (!memoryCardInUse && comboCount >= 2) {
+            if (memoryCardInUse) {
+                if (comboCount >= 2) {
+                    comboCount = 0;
+                    memorySeconds = 20;
+                    document.getElementById("memory-timer").textContent = "20s";
+                    document.getElementById("memory-progress").style.transform =
+                        "scaleY(1)";
+                }
+            } else if (comboCount >= 2) {
                 comboCount = 2;
                 memoryReady = true;
             }
         }
 
-        if (first === bombTile || tile === bombTile) {
+        if (tile === bombTile || first === bombTile) {
             bombTile = null;
             bombSeconds = 15;
 
@@ -425,37 +456,35 @@ function onTileClick(event) {
         }
     } else {
         if (selectedLevel === 4) {
-            comboCount = 0;
-            memoryReady = false;
             updateCounters();
-        }
-
-        selectedCells = [tile];
-        drawTiles();
-
-        if (selectedLevel === 3) {
-            first.revealed = false;
-            drawTiles();
-        }
-
-        inputLocked = true;
-
-        mismatchTimer = window.setTimeout(function () {
-            if (!memoryActive) {
-                if (!first.removed) {
-                    first.revealed = false;
-                }
-
-                if (!tile.removed) {
-                    tile.revealed = false;
-                }
-            }
 
             selectedCells = [];
-            inputLocked = false;
-            mismatchTimer = null;
-            drawTiles();
-        }, 650);
+            inputLocked = true;
+            mismatchTimer = window.setTimeout(function () {
+                if (!memoryActive) {
+                    if (!first.removed) {
+                        first.revealed = false;
+                    }
+
+                    if (!tile.removed) {
+                        tile.revealed = false;
+                    }
+                }
+
+                inputLocked = false;
+                mismatchTimer = null;
+                drawTiles();
+            }, 700);
+        } else {
+            if (selectedLevel === 3) {
+                first.revealed = false;
+                selectedCells = [tile];
+                drawTiles();
+            } else {
+                selectedCells = [tile];
+                drawTiles();
+            }
+        }
     }
 }
 
@@ -499,14 +528,24 @@ function canConnect(first, second) {
                 turns++;
             }
 
-            if (nx < -1 || nx > col || ny < -1 || ny > row || turns > 2) {
+            if (
+                nx < -1 ||
+                nx > col ||
+                ny < -1 ||
+                ny > row ||
+                turns > 2
+            ) {
                 continue;
             }
 
             if (nx >= 0 && nx < col && ny >= 0 && ny < row) {
                 var nextTile = tiles[ny * col + nx];
 
-                if (nextTile !== first && nextTile !== second && !nextTile.removed) {
+                if (
+                    nextTile !== first &&
+                    nextTile !== second &&
+                    !nextTile.removed
+                ) {
                     continue;
                 }
             }
@@ -552,6 +591,7 @@ function shuffleTiles() {
 
     shuffleCount--;
     selectedCells = [];
+
     ensurePossibleMove();
     drawTiles();
     updateCounters();
@@ -581,11 +621,13 @@ function showHint() {
     }
 
     drawTiles();
+
     pair[0].element.classList.add("hint");
     pair[1].element.classList.add("hint");
+
     updateCounters();
 
-    window.setTimeout(drawTiles, 1200);
+    window.setTimeout(drawTiles, 1400);
 }
 
 function findPossiblePair() {
@@ -595,14 +637,20 @@ function findPossiblePair() {
 
     for (var i = 0; i < active.length; i++) {
         for (var j = i + 1; j < active.length; j++) {
-            if (selectedLevel === 3 &&
-                ((active[i].bombKind && !active[i].bombUsed) ||
-                    (active[j].bombKind && !active[j].bombUsed))) {
+            if (
+                selectedLevel === 3 &&
+                (
+                    (active[i].bombKind && !active[i].bombUsed) ||
+                    (active[j].bombKind && !active[j].bombUsed)
+                )
+            ) {
                 continue;
             }
 
-            if (active[i].type === active[j].type &&
-                canConnect(active[i], active[j])) {
+            if (
+                active[i].type === active[j].type &&
+                canConnect(active[i], active[j])
+            ) {
                 return [active[i], active[j]];
             }
         }
@@ -639,6 +687,82 @@ function ensurePossibleMove() {
             return;
         }
     }
+
+    for (var a = 0; a < active.length; a++) {
+        for (var b = a + 1; b < active.length; b++) {
+            if (active[a].type === active[b].type) {
+                var first = active[a];
+                var second = active[b];
+                var firstIndex = tiles.indexOf(first);
+                var secondIndex = tiles.indexOf(second);
+                var firstX = firstIndex % col;
+                var firstY = Math.floor(firstIndex / col);
+                var secondX = secondIndex % col;
+                var secondY = Math.floor(secondIndex / col);
+
+                if (
+                    Math.abs(firstX - secondX) +
+                    Math.abs(firstY - secondY) === 1
+                ) {
+                    return;
+                }
+
+                var temp = first.type;
+                first.type = second.type;
+                second.type = temp;
+
+                if (canConnect(first, second)) {
+                    return;
+                }
+            }
+        }
+    }
+}
+
+function animateTileShuffle(movingTiles) {
+    if (movingTiles.length < 2) {
+        return;
+    }
+
+    var positions = movingTiles.map(function (tile) {
+        return tile.element.getBoundingClientRect();
+    });
+
+    movingTiles.forEach(function (tile, index) {
+        var cell = tile.element;
+        var current = positions[index];
+        var destination = positions[(index + 1) % positions.length];
+        var dx = destination.left - current.left;
+        var dy = destination.top - current.top;
+
+        cell.style.transition = "none";
+        cell.style.position = "relative";
+        cell.style.zIndex = "5";
+        cell.style.transform =
+            "translate(" + dx + "px, " + dy + "px) rotate(" +
+            (index % 2 === 0 ? 7 : -7) + "deg) scale(.96)";
+
+        void cell.offsetWidth;
+    });
+
+    window.requestAnimationFrame(function () {
+        movingTiles.forEach(function (tile) {
+            var cell = tile.element;
+            cell.style.transition =
+                "transform .62s cubic-bezier(.2,.8,.25,1)";
+            cell.style.transform = "translate(0, 0) rotate(0deg) scale(1)";
+        });
+    });
+
+    window.setTimeout(function () {
+        movingTiles.forEach(function (tile) {
+            var cell = tile.element;
+            cell.style.transition = "";
+            cell.style.transform = "";
+            cell.style.position = "";
+            cell.style.zIndex = "";
+        });
+    }, 720);
 }
 
 function placeBomb() {
@@ -687,13 +811,21 @@ function explodeBomb() {
         return;
     }
 
-    var index = tiles.indexOf(bombTile);
-    var cx = index % col;
-    var cy = Math.floor(index / col);
+    var center = tiles.indexOf(bombTile);
+    var cx = center % col;
+    var cy = Math.floor(center / col);
     var nearby = [];
 
-    for (var y = Math.max(0, cy - 1); y <= Math.min(row - 1, cy + 1); y++) {
-        for (var x = Math.max(0, cx - 1); x <= Math.min(col - 1, cx + 1); x++) {
+    for (
+        var y = Math.max(0, cy - 1);
+        y <= Math.min(row - 1, cy + 1);
+        y++
+    ) {
+        for (
+            var x = Math.max(0, cx - 1);
+            x <= Math.min(col - 1, cx + 1);
+            x++
+        ) {
             var tile = tiles[y * col + x];
 
             if (!tile.removed && tile !== bombTile) {
@@ -707,16 +839,19 @@ function explodeBomb() {
     });
 
     shuffleArray(values);
+    animateTileShuffle(nearby);
 
-    nearby.forEach(function (tile, i) {
-        tile.type = values[i];
+    nearby.forEach(function (tile, index) {
+        tile.type = values[index];
     });
 
     bombTile = null;
     selectedCells = [];
+
     ensurePossibleMove();
     drawTiles();
     placeBomb();
+    startBombTimer();
 }
 
 function triggerLuckyBomb(bomb) {
@@ -726,11 +861,12 @@ function triggerLuckyBomb(bomb) {
 
     inputLocked = true;
 
-    var index = tiles.indexOf(bomb);
-    var cx = index % col;
-    var cy = Math.floor(index / col);
-    var affected = [];
-    var positions = [
+    var bombIndex = tiles.indexOf(bomb);
+    var cx = bombIndex % col;
+    var cy = Math.floor(bombIndex / col);
+    var cross = [];
+
+    var crossPositions = [
         [cx, cy],
         [cx, cy - 1],
         [cx, cy + 1],
@@ -738,7 +874,7 @@ function triggerLuckyBomb(bomb) {
         [cx + 1, cy]
     ];
 
-    positions.forEach(function (position) {
+    crossPositions.forEach(function (position) {
         var x = position[0];
         var y = position[1];
 
@@ -748,45 +884,56 @@ function triggerLuckyBomb(bomb) {
 
         var tile = tiles[y * col + x];
 
-        if (!tile.removed && affected.indexOf(tile) === -1) {
-            affected.push(tile);
+        if (!tile.removed && cross.indexOf(tile) === -1) {
+            cross.push(tile);
         }
     });
 
-    var types = [];
+    var removeList = cross.slice();
+    var crossTypes = [];
 
-    affected.forEach(function (tile) {
-        if (types.indexOf(tile.type) === -1) {
-            types.push(tile.type);
+    cross.forEach(function (tile) {
+        if (crossTypes.indexOf(tile.type) === -1) {
+            crossTypes.push(tile.type);
         }
     });
 
-    types.forEach(function (type) {
-        var count = affected.filter(function (tile) {
+    crossTypes.forEach(function (type) {
+        var countOfType = removeList.filter(function (tile) {
             return tile.type === type;
         }).length;
 
-        if (count % 2 !== 0) {
-            var extra = tiles.find(function (tile) {
+        if (countOfType % 2 !== 0) {
+            var matchingTile = tiles.find(function (tile) {
                 return !tile.removed &&
                     tile.type === type &&
-                    affected.indexOf(tile) === -1;
+                    removeList.indexOf(tile) === -1;
             });
 
-            if (extra) {
-                affected.push(extra);
+            if (matchingTile) {
+                removeList.push(matchingTile);
             }
         }
     });
 
+    removeList.forEach(function (tile, index) {
+        tile.element.classList.remove("tile-flip-out");
+        tile.element.classList.add("tile-disappear");
+        tile.element.style.animationDelay = (index * 55) + "ms";
+    });
+
     window.setTimeout(function () {
-        affected.forEach(function (tile) {
-            tile.removed = true;
-            currentScore += 5;
+        removeList.forEach(function (tile) {
+            if (!tile.removed) {
+                tile.removed = true;
+                tile.revealed = true;
+                tile.element.style.animationDelay = "";
+                currentScore += 5;
+            }
         });
 
-        inputLocked = false;
         selectedCells = [];
+        inputLocked = false;
         updateCounters();
         saveHighScoreIfNeeded();
         drawTiles();
@@ -795,10 +942,11 @@ function triggerLuckyBomb(bomb) {
             return tile.removed;
         })) {
             finishGame();
-        } else {
+        } else if (!hasPossibleMove()) {
             ensurePossibleMove();
+            drawTiles();
         }
-    }, 450);
+    }, 850);
 }
 
 function triggerUnluckyBomb(bomb) {
@@ -807,15 +955,15 @@ function triggerUnluckyBomb(bomb) {
     var index = tiles.indexOf(bomb);
     var cx = index % col;
     var cy = Math.floor(index / col);
-    var positions = [
-        [cx, cy],
+
+    var crossPositions = [
         [cx, cy - 1],
         [cx, cy + 1],
         [cx - 1, cy],
         [cx + 1, cy]
     ];
 
-    positions.forEach(function (position) {
+    crossPositions.forEach(function (position, order) {
         var x = position[0];
         var y = position[1];
 
@@ -823,15 +971,30 @@ function triggerUnluckyBomb(bomb) {
             return;
         }
 
-        var tile = tiles[y * col + x];
+        var near = tiles[y * col + x];
 
-        if (!tile.removed) {
-            tile.revealed = false;
+        if (!near.removed) {
+            near.element.classList.remove("tile-flip-out");
+            near.element.classList.add("tile-flip-out");
+            near.revealed = false;
+
+            window.setTimeout(function (cell) {
+                return function () {
+                    cell.classList.remove("tile-flip-out");
+                };
+            }(near.element), 450 + order * 45);
         }
     });
 
+    bomb.element.classList.remove("tile-flip-out");
+    bomb.element.classList.add("tile-flip-out");
+    bomb.revealed = false;
     selectedCells = [];
     drawTiles();
+
+    window.setTimeout(function () {
+        bomb.element.classList.remove("tile-flip-out");
+    }, 500);
 
     window.setTimeout(function () {
         inputLocked = false;
@@ -880,7 +1043,12 @@ function startLevelFourPreview() {
 }
 
 function useMemoryCard() {
-    if (!gameRunning || selectedLevel !== 4 || !memoryReady || memoryActive) {
+    if (
+        !gameRunning ||
+        selectedLevel !== 4 ||
+        !memoryReady ||
+        memoryActive
+    ) {
         return;
     }
 
@@ -888,10 +1056,10 @@ function useMemoryCard() {
     comboCount = 0;
     memoryActive = true;
     memoryCardInUse = true;
-    memorySeconds = 15;
+    memorySeconds = 20;
 
     document.getElementById("memory-timer").hidden = false;
-    document.getElementById("memory-timer").textContent = "15s";
+    document.getElementById("memory-timer").textContent = "20s";
     document.getElementById("memory-progress").style.transform = "scaleY(1)";
 
     if (edgeTimer !== null) {
@@ -913,19 +1081,20 @@ function useMemoryCard() {
             memorySeconds + "s";
 
         document.getElementById("memory-progress").style.transform =
-            "scaleY(" + Math.max(0, memorySeconds / 15) + ")";
+            "scaleY(" + Math.max(0, memorySeconds / 20) + ")";
 
         if (memorySeconds <= 0) {
             window.clearInterval(memoryTimer);
             memoryTimer = null;
             memoryActive = false;
             memoryCardInUse = false;
-            memorySeconds = 15;
-            comboCount = 0;
+            memorySeconds = 20;
             memoryReady = false;
+            comboCount = 0;
 
             document.getElementById("memory-timer").hidden = true;
-            document.getElementById("memory-progress").style.transform = "scaleY(0)";
+            document.getElementById("memory-progress").style.transform =
+                "scaleY(0)";
 
             tiles.forEach(function (tile) {
                 if (!tile.removed) {
@@ -968,6 +1137,7 @@ function showNextEdgeGroup() {
     active.forEach(function (tile) {
         tile.element.classList.remove("memory");
         tile.element.style.removeProperty("--memory-color");
+        tile.element.style.removeProperty("--edge-delay");
     });
 
     var types = [];
@@ -985,11 +1155,13 @@ function showNextEdgeGroup() {
     var type = types[colorIndex % types.length];
     var color = colors[colorIndex % colors.length];
 
-    active.forEach(function (tile) {
-        if (tile.type === type) {
-            tile.element.classList.add("memory");
-            tile.element.style.setProperty("--memory-color", color);
-        }
+    var matching = active.filter(function (tile) {
+        return tile.type === type;
+    });
+
+    matching.forEach(function (tile) {
+        tile.element.classList.add("memory");
+        tile.element.style.setProperty("--memory-color", color);
     });
 
     colorIndex++;
@@ -1012,7 +1184,7 @@ function startGameTimer() {
             stopAllTimers();
 
             document.getElementById("game-note").textContent =
-                "Bạn đạt " + currentScore + " điểm.";
+                " Điểm của bạn: " + currentScore + ".";
 
             saveHighScoreIfNeeded();
             updateCounters();
@@ -1032,7 +1204,10 @@ function updateGameTimerDisplay() {
     var timeText = document.getElementById("game-time-text");
     var timeBar = document.getElementById("game-time-bar");
     var remaining = Math.max(0, gameTimeLeft);
-    var percent = Math.max(0, Math.min(100, remaining / gameTimeLimit * 100));
+    var percent = Math.max(
+        0,
+        Math.min(100, remaining / gameTimeLimit * 100)
+    );
 
     timeText.textContent = remaining + "s";
     timeBar.style.width = percent + "%";
@@ -1059,6 +1234,10 @@ function stopAllTimers() {
         window.clearInterval(memoryTimer);
     }
 
+    if (previewTimer !== null) {
+        window.clearTimeout(previewTimer);
+    }
+
     if (countdownTimer !== null) {
         window.clearInterval(countdownTimer);
     }
@@ -1072,6 +1251,7 @@ function stopAllTimers() {
     }
 
     memoryTimer = null;
+    previewTimer = null;
     countdownTimer = null;
     edgeTimer = null;
     mismatchTimer = null;
@@ -1112,16 +1292,19 @@ function updateCounters() {
 }
 
 function updateHighScore() {
-    var savedScore = Number(localStorage.getItem(highScoreKey)) || 0;
+    var savedScore =
+        Number(localStorage.getItem(highScoreKey)) || 0;
 
     document.getElementById("high-score-value").textContent =
         savedScore + " điểm";
 
-    document.getElementById("game-high-score").textContent = savedScore;
+    document.getElementById("game-high-score").textContent =
+        savedScore;
 }
 
 function saveHighScoreIfNeeded() {
-    var savedScore = Number(localStorage.getItem(highScoreKey)) || 0;
+    var savedScore =
+        Number(localStorage.getItem(highScoreKey)) || 0;
 
     if (currentScore > savedScore) {
         localStorage.setItem(highScoreKey, currentScore);
@@ -1132,6 +1315,7 @@ function saveHighScoreIfNeeded() {
 function shuffleArray(items) {
     for (var i = items.length - 1; i > 0; i--) {
         var j = Math.floor(Math.random() * (i + 1));
+
         var temp = items[i];
         items[i] = items[j];
         items[j] = temp;
