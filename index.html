@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -147,13 +148,6 @@
             font-weight: bold;
         }
 
-        .high-score {
-            margin: 22px 0;
-            color: #b77910;
-            font-size: 24px;
-            font-weight: bold;
-        }
-
         .game-container {
             width: 100%;
             max-width: 1150px;
@@ -276,7 +270,7 @@
             margin: 0 0 6px;
             color: #315da8;
             font-size: 13px;
-            font-weight: 800;
+            font-weight: 600;
             letter-spacing: 1px;
         }
 
@@ -703,10 +697,6 @@
             <button id="choose-level-button" class="menu-button">
                 CHỌN LEVEL
             </button>
-
-            <button id="high-score-button" class="menu-button">
-                KỶ LỤC
-            </button>
         </div>
     </div>
 </section>
@@ -721,41 +711,46 @@
             </div>
 
             <div class="level-list">
+
                 <div class="level-option">
                     <button class="level-button selected" data-level="1"
-                            data-help="Ghép hai hình giống nhau bằng đường nối hợp lệ để ghi điểm."
+                            data-help="Ghép hai ô có hình giống nhau bằng đường nối hợp lệ để loại bỏ chúng và ghi điểm. Sử dụng gợi ý hoặc đổi vị trí khi cần."
                             aria-pressed="true">
-                        <span class="level-name">Level 1 — Cổ điển</span>
+                        <span class="level-name">Level 1 — Cổ Điển</span>
                     </button>
                 </div>
 
                 <div class="level-option">
                     <button class="level-button" data-level="2"
-                            data-help="Ghép hình và xử lý bom trước khi đồng hồ đếm ngược về 0."
+                            data-help="Một quả bom xuất hiện ngẫu nhiên trên bàn chơi và đếm ngược trong 15 giây. Nếu không tiêu diệt ô chứa bom kịp thời, bom sẽ phát nổ và làm xáo trộn vị trí các ô xung quanh."
                             aria-pressed="false">
-                        <span class="level-name">Level 2 — Bom đếm ngược</span>
+                        <span class="level-name">Level 2 — Bom Đếm Ngược</span>
                     </button>
                 </div>
 
                 <div class="level-option">
                     <button class="level-button" data-level="3"
-                            data-help="Lật các ô úp, ghi nhớ hình và cẩn thận với bom may rủi."
+                            data-help="Một số ô hình bị úp lại, trong đó có 2 bom may mắn và 2 bom xui rủi. Bom may mắn giúp loại bỏ các ô xung quanh, bom xui rủi khiến các ô xung quanh bị úp lại."
                             aria-pressed="false">
-                        <span class="level-name">Level 3 — Bom may rủi</span>
+                        <span class="level-name">Level 3 — Bom May Rủi</span>
                     </button>
                 </div>
 
                 <div class="level-option">
                     <button class="level-button" data-level="4"
-                            data-help="Ghép đúng 2 combo để mở Thẻ Ký Ức trong 20 giây. Khi thẻ đang mở, cứ ghép đủ 2 cặp thì thời gian được hồi đầy lên 20 giây."
+                            data-help="Tất cả ô đều bị úp. Dùng gợi ý hoặc quan sát các ô cùng màu lần lượt xuất hiện để tìm 2 cặp ô giống nhau và kích hoạt Thẻ Ký Ức. Thẻ mở toàn bộ ô trong 15 giây. Trong thời gian này, ghép thêm 2 cặp để đặt lại thời gian thẻ về 15 giây. Nếu hết giờ, tất cả ô sẽ bị úp lại và bạn phải kích hoạt thẻ lần nữa."
                             aria-pressed="false">
                         <span class="level-name">Level 4 — Ký Ức Vô Tận</span>
                     </button>
                 </div>
+
             </div>
 
-            <div id="level-help-content" class="help-content">
-                Ghép hai hình giống nhau bằng đường nối hợp lệ để ghi điểm.
+            <div class="help-content">
+                <strong>Hướng dẫn chơi</strong>
+                <p id="level-help-content">
+
+                </p>
             </div>
 
             <button id="play-level-button" class="menu-button primary">
@@ -769,32 +764,14 @@
     </div>
 </section>
 
-<section id="score-screen" class="screen" hidden>
-    <div class="menu-container">
-        <div class="menu-panel">
-            <h2 class="section-title">Kỷ lục</h2>
-            <p>Điểm cao nhất đã lưu trên trình duyệt này.</p>
-            <p id="high-score-value" class="high-score">0 điểm</p>
-
-            <button id="score-back-button" class="menu-button">
-                QUAY LẠI
-            </button>
-        </div>
-    </div>
-</section>
-
 <section id="game-screen" class="screen" hidden>
     <div class="game-container">
         <div class="game-header">
-            <h2 id="game-title">PIKACHU — LEVEL 1</h2>
+            <h2 id="game-title">PIKACHU</h2>
 
             <div class="status-line">
                 <span class="status-item">
                     Điểm: <b id="current-score">0</b>
-                </span>
-
-                <span class="status-item">
-                    Kỷ lục: <b id="game-high-score">0</b>
                 </span>
 
                 <span class="status-item">

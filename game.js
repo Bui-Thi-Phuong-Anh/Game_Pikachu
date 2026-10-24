@@ -4,7 +4,6 @@ var row = 9;
 var game = document.getElementById("game");
 var homeScreen = document.getElementById("home-screen");
 var levelScreen = document.getElementById("level-screen");
-var scoreScreen = document.getElementById("score-screen");
 var gameScreen = document.getElementById("game-screen");
 
 var selectedLevel = 1;
@@ -33,7 +32,6 @@ var inputLocked = false;
 var tiles = [];
 var selectedCells = [];
 var levelReturnScreen = "home-screen";
-var highScoreKey = "pikachuHighScore";
 var colorIndex = 0;
 
 var colors = [
@@ -48,7 +46,6 @@ var colors = [
 ];
 
 showScreen(homeScreen);
-updateHighScore();
 
 document.getElementById("start-button").addEventListener("click", function () {
     startGame(selectedLevel);
@@ -58,16 +55,6 @@ document.getElementById("choose-level-button").addEventListener("click", functio
     levelReturnScreen = "home-screen";
     showSelectedLevelHelp();
     showScreen(levelScreen);
-});
-
-document.getElementById("high-score-button").addEventListener("click", function () {
-    updateHighScore();
-    levelReturnScreen = "home-screen";
-    showScreen(scoreScreen);
-});
-
-document.getElementById("score-back-button").addEventListener("click", function () {
-    showScreen(levelReturnScreen === "game-screen" ? gameScreen : homeScreen);
 });
 
 document.getElementById("close-level-button").addEventListener("click", returnFromLevelMenu);
@@ -128,7 +115,6 @@ function showScreen(screen) {
     var screens = [
         homeScreen,
         levelScreen,
-        scoreScreen,
         gameScreen
     ];
 
@@ -161,12 +147,13 @@ function startGame(level) {
     selectedLevel = level || selectedLevel;
     currentScore = 0;
     shuffleCount = 7;
-    hintCount = 5;
+    hintCount = selectedLevel === 4 ? 7 : 5;
     comboCount = 0;
     memoryReady = false;
     memoryActive = false;
     memoryCardInUse = false;
     memorySeconds = 20;
+    gameTimeLimit = selectedLevel === 4 ? 600 : 480;
     gameTimeLeft = gameTimeLimit;
     bombSeconds = 15;
     bombTile = null;
@@ -234,6 +221,7 @@ function createBoard() {
                 type: values[index],
                 removed: false,
                 revealed: selectedLevel === 1 || selectedLevel === 2,
+                openedByCurrentSelection: false,
                 bombKind: null,
                 bombUsed: false
             };
@@ -370,9 +358,11 @@ function onTileClick(event) {
     if (!tile || tile.removed) {
         return;
     }
+    var wasRevealedBeforeClick = tile.revealed;
 
     if (selectedLevel === 3 && !tile.revealed) {
         tile.revealed = true;
+        tile.openedByCurrentSelection = true;
         drawTiles();
 
         if (tile.bombKind && !tile.bombUsed) {
@@ -399,11 +389,19 @@ function onTileClick(event) {
     }
 
     if (selectedCells.length === 0) {
+        tile.wasRevealedBeforeSelection = wasRevealedBeforeClick;
+        if (selectedLevel === 3 && wasRevealedBeforeClick) {
+            tile.openedByCurrentSelection = false;
+        }
         selectedCells.push(tile);
         drawTiles();
         return;
     }
 
+    tile.wasRevealedBeforeSelection = wasRevealedBeforeClick;
+    if (selectedLevel === 3 && wasRevealedBeforeClick) {
+        tile.openedByCurrentSelection = false;
+    }
     var first = selectedCells[0];
 
     if (first.type === tile.type && canConnect(first, tile)) {
@@ -440,7 +438,6 @@ function onTileClick(event) {
         }
 
         updateCounters();
-        saveHighScoreIfNeeded();
         drawTiles();
 
         if (tiles.every(function (item) {
@@ -477,9 +474,28 @@ function onTileClick(event) {
             }, 700);
         } else {
             if (selectedLevel === 3) {
-                first.revealed = false;
-                selectedCells = [tile];
+                selectedCells = [first, tile];
+                inputLocked = true;
                 drawTiles();
+
+                mismatchTimer = window.setTimeout(function () {
+                    if (!first.removed && first.openedByCurrentSelection) {
+                        first.revealed = false;
+                    }
+
+                    if (!tile.removed && tile.openedByCurrentSelection) {
+                        tile.revealed = false;
+                    }
+
+                    first.openedByCurrentSelection = false;
+                    tile.openedByCurrentSelection = false;
+                    first.wasRevealedBeforeSelection = false;
+                    tile.wasRevealedBeforeSelection = false;
+                    selectedCells = [];
+                    inputLocked = false;
+                    mismatchTimer = null;
+                    drawTiles();
+                }, 700);
             } else {
                 selectedCells = [tile];
                 drawTiles();
@@ -935,7 +951,6 @@ function triggerLuckyBomb(bomb) {
         selectedCells = [];
         inputLocked = false;
         updateCounters();
-        saveHighScoreIfNeeded();
         drawTiles();
 
         if (tiles.every(function (tile) {
@@ -1186,7 +1201,6 @@ function startGameTimer() {
             document.getElementById("game-note").textContent =
                 " Điểm của bạn: " + currentScore + ".";
 
-            saveHighScoreIfNeeded();
             updateCounters();
             updateGameTimerDisplay();
         }
@@ -1219,10 +1233,9 @@ function finishGame() {
     stopAllTimers();
 
     document.getElementById("game-note").textContent =
-        "Chúc mừng! Bạn đã hoàn thành Level " +
+        "Chúc mừng bạn đã hoàn thành Level " +
         selectedLevel + " với " + currentScore + " điểm.";
 
-    saveHighScoreIfNeeded();
     updateCounters();
 }
 
@@ -1288,28 +1301,6 @@ function updateCounters() {
     comboLabel.textContent = comboCount + "/2 COMBO";
     memoryHint.textContent = "";
 
-    updateHighScore();
-}
-
-function updateHighScore() {
-    var savedScore =
-        Number(localStorage.getItem(highScoreKey)) || 0;
-
-    document.getElementById("high-score-value").textContent =
-        savedScore + " điểm";
-
-    document.getElementById("game-high-score").textContent =
-        savedScore;
-}
-
-function saveHighScoreIfNeeded() {
-    var savedScore =
-        Number(localStorage.getItem(highScoreKey)) || 0;
-
-    if (currentScore > savedScore) {
-        localStorage.setItem(highScoreKey, currentScore);
-        updateHighScore();
-    }
 }
 
 function shuffleArray(items) {
